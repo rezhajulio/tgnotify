@@ -6,6 +6,9 @@ on:
     tags: ['v*']
   pull_request:
 
+env:
+  LISETTE_VERSION: "0.12.3"
+
 jobs:
   check:
     name: check
@@ -14,10 +17,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Lisette
-        run: curl -fsSL https://lisette.run/install.sh | sh
-
-      - name: Add lis to PATH
-        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL --retry 5 --retry-all-errors --max-time 180 \
+            "https://github.com/ivov/lisette/releases/download/lisette-v${LISETTE_VERSION}/lisette-x86_64-unknown-linux-musl.tar.xz" \
+            -o /tmp/lisette.tar.xz
+          tar -xJf /tmp/lisette.tar.xz -C /tmp
+          install -m 755 "/tmp/lisette-x86_64-unknown-linux-musl/lis" "$HOME/.local/bin/lis"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          lis version
 
       - name: Format check
         run: lis format --check
@@ -47,10 +56,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Lisette
-        run: curl -fsSL https://lisette.run/install.sh | sh
-
-      - name: Add lis to PATH
-        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL --retry 5 --retry-all-errors --max-time 180 \
+            "https://github.com/ivov/lisette/releases/download/lisette-v${LISETTE_VERSION}/lisette-x86_64-unknown-linux-musl.tar.xz" \
+            -o /tmp/lisette.tar.xz
+          tar -xJf /tmp/lisette.tar.xz -C /tmp
+          install -m 755 "/tmp/lisette-x86_64-unknown-linux-musl/lis" "$HOME/.local/bin/lis"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          lis version
 
       - name: Build stripped binary
         run: |
