@@ -1,0 +1,65 @@
+import "go:bytes"
+import "go:encoding/json"
+import "go:errors"
+import "go:fmt"
+import "go:io"
+import "go:net/http"
+import "go:os"
+
+#[json]
+struct SendMessage { chat_id: string, text: string, parse_mode: string }
+
+fn send_message(
+  token: string,
+  chat_id: string,
+  text: string,
+) -> Result<(), error> {
+  let payload = SendMessage { chat_id, text, parse_mode: "HTML" }
+  let body = json.Marshal(payload)?
+  let mut reader = bytes.NewReader(body)
+  let url = f"https://api.telegram.org/bot{token}/sendMessage"
+  let resp = http.Post(url, "application/json", reader)?
+  // http.Response.Body is Option<io.ReadCloser>: nil-able in Go, so Lisette
+  // forces us to handle the missing case explicitly.
+  let Some(resp_body) = resp.Body else {
+    return Err(errors.New("telegram: empty response body"))
+  }
+  defer resp_body.Close()
+  if resp.StatusCode != 200 {
+    // io.ReadAll returns Partial: the body may carry bytes AND an error.
+    let detail = match io.ReadAll(resp_body) {
+      Partial.Ok(b) => b as string,
+      Partial.Both(b, _) => b as string,
+      Partial.Err(_) => "(failed to read response body)",
+    }
+    return Err(errors.New(
+      f"telegram API error: HTTP {resp.StatusCode}: {detail}",
+    ))
+  }
+  Ok(())
+}
+
+fn main() {
+  let Some(token) = os.LookupEnv("TELEGRAM_BOT_TOKEN") else {
+    fmt.Println("error: TELEGRAM_BOT_TOKEN environment variable is not set")
+    os.Exit(2)
+  }
+  if token.is_empty() {
+    fmt.Println("error: TELEGRAM_BOT_TOKEN is empty")
+    os.Exit(2)
+  }
+  let args = os.Args
+  if args.length() < 3 {
+    fmt.Println(f"usage: {args[0]} <chat_id> <message>")
+    os.Exit(2)
+  }
+  let chat_id = args[1]
+  let text = args[2..].join(" ")
+  match send_message(token, chat_id, text) {
+    Ok(()) => fmt.Println("ok: message sent"),
+    Err(e) => {
+      fmt.Println(f"error: {e}")
+      os.Exit(1)
+    },
+  }
+}
