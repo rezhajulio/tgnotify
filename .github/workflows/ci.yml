@@ -69,9 +69,17 @@ jobs:
 
       - name: Build stripped binary
         run: |
+          set -euo pipefail
           lis build --target ${{ matrix.target }} --go-flags "-ldflags='-s -w'"
+          # lis puts cross-compiled binaries under target/.lisette/bin/<goos>_<goarch>/
+          count="$(find target/.lisette/bin -type f | wc -l)"
+          if [ "$count" -ne 1 ]; then
+            echo "expected 1 binary under target/.lisette/bin, found $count:"
+            find target/.lisette/bin
+            exit 1
+          fi
           mkdir -p dist
-          mv target/.lisette/bin/* "dist/${{ matrix.name }}"
+          find target/.lisette/bin -type f -exec mv {} "dist/${{ matrix.name }}" \;
           ls -la dist/
 
       - name: Upload artifact
